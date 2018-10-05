@@ -2,6 +2,8 @@
                               VolWheel
                    ===============================
 
+Warning: this project has not been maintained for years.
+
 VolWheel is a little icon that lives in your notification area which allows you
 to quickly change the sound volume. You can do a right-click, left-click,
 middle-click, scroll up and down... I let you discover.
@@ -13,7 +15,7 @@ new icons and themes for VolWheel. Take a look in /usr/share/volwheel/icons/ to
 see how it works.
 
 Send your feedback and contribs to olivier.duclos@gmail.com
-You can track this software on http://oliwer.net/
+You can track this software on https://github.com/oliwer/volwheel
 
 
 Requierements

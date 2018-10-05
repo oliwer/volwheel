@@ -1,0 +1,50 @@
+2010-08-01 - v0.2.8
+ * Fixed a bug which prevented to switch icon theme
+ * Removed dependency on Switch.pm (Gentoo Bug #329965)
+ * The volume won't suddenly jump to 75% when unmuting
+ * Prevent the launching of too many instances of amixer/ossmix
+   to lower CPU usage
+ * Fixed an installer bug - the prefix is now modified in volwheel
+
+2009-03-02 - v0.2.7
+ * Added OSS support through ossmix
+ * Added the MiniMixer
+ * Added configurable prefix
+ * Added support for xdg-user-dir spec
+ * Added an install script
+ * Modularisation and lots of code rewrite
+
+2009-01-01 - v0.2.6
+ * Added a timer to refresh the icon automatically
+ * Fixed several bugs in the mini-mixer (should work better on KDE)
+ * Updated help
+ * Improved command line performances
+ * Added support for spaces in channel names (no quotes required)
+ * Various bug fixes and code rewrites
+
+2008-08-20 - v0.2.5
+ * Added a dynamic icon mode with icon themes support
+ * Added new icons inside the package
+ * Lots of code rewrite
+
+2008-07-05 - v0.2.4
+ * Included volwheel's icon inside the package in order to
+   avoid the gnome-icon-theme dependency
+
+2008-05-04 - v0.2.3
+ * Added a volume scaling window (for times when you don't
+   have a mouse on your laptop)
+
+2008-04-08 - v0.2.2
+ * Added a command line mode
+ * Added the possibility to configure volume incrementation
+ * Fixed the zombie bug when launching a mixer
+   (thanks to Pablo Flouret)
+ * The volume before muting in now saved
+ * Some code clean up
+
+2007-11-14 - v0.2.1
+ * Fixed a bug with muting channels that don't support it
+
+2007-11-13 - v0.2
+ * First public release

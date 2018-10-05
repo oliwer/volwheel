@@ -1,0 +1,295 @@
+#!/usr/bin/env perl
+
+# VolWheel - set the volume with your mousewheel
+# Author : Olivier Duclos <olivier.duclos gmail.com>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+use strict;
+use warnings;
+use Time::HiRes qw(gettimeofday tv_interval);
+use if (@ARGV < 1),  Gtk2 => '-init';
+use lib '/usr/local/lib/volwheel';
+use Alsa;
+use OSS;
+use Conf;
+use ConfDialog;
+use MiniMixer;
+
+use constant APPNAME => "VolWheel";
+use constant VERSION => "0.2.8"; # 2010-08-01
+
+use constant INTRVAL => 0.18;    # Lower this variable if you find volwheel
+                                 # not reactive enough. This will consume
+                                 # more CPU though.
+
+# M A I N #
+
+our $prefix = "/usr/local";
+our $intrval = INTRVAL;
+
+our $opt = Conf->new;
+    $opt->read_conf;
+
+my $multiplicator = 1;
+
+if (@ARGV) {
+	# command line
+	if    ($ARGV[0] eq "-h" || $ARGV[0] eq "--help")      { usage()   }
+	elsif ($ARGV[0] eq "-v" || $ARGV[0] eq "--version")   { version() }
+	elsif ($ARGV[0] eq "-i" || $ARGV[0] eq "--increase")  { volup()   }
+	elsif ($ARGV[0] eq "-d" || $ARGV[0] eq "--decrease")  { voldown() }
+	elsif ($ARGV[0] eq "-m" || $ARGV[0] eq "--mute")      { toggle()  }
+	elsif ($ARGV[0] eq "-s" || $ARGV[0] eq "--status")    { status()  }
+	else                                                  { usage()   }
+
+	exit;
+}
+
+# Tray icon
+my $icon = Gtk2::StatusIcon->new;
+   $icon->signal_connect('button_release_event', \&click_handler);
+   $icon->signal_connect('popup-menu', \&popup);
+   $icon->signal_connect('scroll_event', \&scroll_handler);
+update_icon();
+
+# the refresh loop
+my $loop = Glib::Timeout->add_seconds($opt->loop_time, \&update_icon);
+
+my $tv = [ gettimeofday ];
+
+Gtk2->main;
+
+
+
+# S U B S #
+
+sub volup {
+	if ($opt->driver eq "Alsa") {
+		if ( Alsa::unmute($opt->channel, $opt->before_mute) == -1) {
+			Alsa::volume_up( $opt->channel, $opt->increment * $multiplicator );
+		}
+	}
+	elsif ($opt->driver eq "OSS") {
+			OSS::volume_up( $opt->channel, $opt->increment );
+	}
+}
+
+sub voldown {
+	if ($opt->driver eq "Alsa") {
+		if ( Alsa::is_muted($opt->channel) == 0 ) {
+			Alsa::volume_down( $opt->channel, $opt->increment * $multiplicator );
+		}
+	}
+	elsif ($opt->driver eq "OSS") {
+		OSS::volume_down( $opt->channel, $opt->increment );
+	}
+}
+
+sub toggle {
+	if ($opt->driver eq "Alsa") {
+		if ( Alsa::unmute($opt->channel, $opt->before_mute) == -1 ) {
+			$opt->before_mute( Alsa::mute($opt->channel) );
+		}
+	}
+	elsif ($opt->driver eq "OSS") {
+		my $volume = OSS::volume($opt->channel);
+		if ($volume > 0) {
+			$opt->before_mute($volume);
+			OSS::mute($opt->channel);
+		}
+		else {
+			OSS::unmute($opt->channel, $opt->before_mute);
+		}
+	}
+}
+
+sub get_volume {
+	my $channel = shift;
+
+	unless (defined($channel)) {$channel = $opt->channel; }
+
+	if ($opt->driver eq "Alsa") {
+		my ($muted, $volume) = Alsa::status($channel);
+		if ($muted > 0) { return 0 }
+		else { return $volume }
+	}
+	elsif ($opt->driver eq "OSS") {
+		return ( OSS::volume($channel) );
+	}
+}
+
+sub set_volume {
+	my ($value, $channel) = @_;
+
+	unless (defined($channel)) {$channel = $opt->channel; }
+
+	if ($opt->driver eq "Alsa") {
+		Alsa::set_volume($channel, $value);
+	}
+	elsif ($opt->driver eq "OSS") {
+		OSS::set_volume($channel, $value);
+	}
+}
+
+sub launch_mixer {
+	exec $opt->mixer unless fork;
+	$SIG{CHLD} = "IGNORE";
+}
+
+sub launch_website {
+	exec "xdg-open http://oliwer.net" unless fork;
+	$SIG{CHLD} = "IGNORE";
+}
+
+sub click_handler {
+	my ($check, $event) = @_;
+
+	# Left click
+	if ($event->button eq 1) {
+		if ($opt->show_scale == 0) {
+			MiniMixer::show;
+		}
+		else {
+			$MiniMixer::winscale->hide;
+		}
+	}
+	# Middle click
+	elsif ($event->button eq 2) {
+		toggle();
+		update_icon();
+	}
+}
+
+sub scroll_handler {
+	my ($check, $event) = @_;
+	#print("interval: " . tv_interval($tv) . "\n");
+	if (tv_interval($tv) < INTRVAL) { $multiplicator++; return; }
+	if ("up" eq $event->direction) { volup(); }
+	else { voldown(); }
+	update_icon();
+	$tv = [ gettimeofday ];
+	$multiplicator = 1;
+}
+
+sub popup {
+	my ($icon,$button,$activate_time,$user_data) = @_;
+
+	my $menu = Gtk2::Menu->new;
+	my $item_prefs = Gtk2::ImageMenuItem->new_from_stock('gtk-preferences');
+	my $item_about = Gtk2::ImageMenuItem->new_from_stock('gtk-about');
+	my $item_separ = Gtk2::SeparatorMenuItem->new;
+	my $item_quit  = Gtk2::ImageMenuItem->new_from_stock('gtk-quit');
+
+	$item_prefs->signal_connect('activate', \&ConfDialog::show);
+	$item_about->signal_connect('activate', \&about_dialog);
+	$item_quit->signal_connect('activate', \&out);
+
+	$menu->add($item_prefs);
+	$menu->add($item_about);
+	$menu->add($item_separ);
+	$menu->add($item_quit);
+
+	$menu->show_all;
+	$menu->popup(undef, undef, undef, $user_data, $button, $activate_time);
+}
+
+sub update_icon {
+	my $volume = get_volume();
+
+	if ($opt->icon_static) {
+		$icon->set_from_file($opt->icon_path);
+	}
+	else {
+		my $icon_number = get_icon_number($volume);
+		$icon->set_from_file("$prefix/share/volwheel/icons/".$opt->icon_theme."/$icon_number.png");
+	}
+
+	$icon->set_tooltip_text($opt->channel." : $volume%");
+
+	if ($opt->show_scale) {
+		MiniMixer::update;
+	}
+
+	return 1; # this is needed for the refresh loop
+}
+
+sub get_icon_number {
+	my $volume = shift;
+	if    ($volume <= 0)    { return 1 }
+	elsif ($volume <= 16)   { return 2 }
+	elsif ($volume <= 33)   { return 3 }
+	elsif ($volume <= 50)   { return 4 }
+	elsif ($volume <= 67)   { return 5 }
+	elsif ($volume <= 84)   { return 6 }
+	elsif ($volume <= 99)   { return 7 }
+	elsif ($volume == 100)  { return 8 }
+	else                    { return 1 }
+}
+
+sub about_dialog {
+	my $about = Gtk2::AboutDialog->new;
+	$about->set_program_name(APPNAME);
+	$about->set_version(VERSION);
+	$about->set_logo (Gtk2::Gdk::Pixbuf->new_from_file(
+		"/usr/share/icons/hicolor/scalable/apps/volwheel.svg"));
+	$about->set_copyright("Copyright (c) Olivier Duclos 2008-2009");
+	$about->set_comments("Set the volume with your mousewheel");
+	$about->set_url_hook(\&launch_website);
+	$about->set_website("http://oliwer.net/");
+	$about->run;
+	$about->destroy;
+}
+
+sub status {
+	my $volume = get_volume();
+	print ($opt->channel." : $volume%\n");
+}
+
+sub usage {
+print "usage: volwheel [option]
+
+  -i --increase        increase volume
+  -d --decrease        decrease volume
+  -m --mute            mute or unmute
+  -s --status          show the current channel and volume
+  -h --help            show this help
+  -v --version         show version informations
+
+When called without options, volwheel is a trayicon which allows you to
+quickly see or change the sound volume of your computer.
+
+Trayicon usage :
+  * scroll up          increase volume
+  * scroll down        decrease volume
+  * left click         show the MiniMixer window
+  * right click        menu to access to the configuration panel
+  * middle click       mute or unmute
+";
+}
+
+sub version {
+print APPNAME, " version ", VERSION, "
+Copyright (c) Olivier Duclos 2008-2009.
+http://oliwer.net/
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.\n\n";
+}
+
+sub out {
+	Gtk2->main_quit;
+}

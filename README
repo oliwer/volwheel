@@ -1,0 +1,28 @@
+                   ===============================
+                              VolWheel
+                   ===============================
+
+VolWheel is a little icon that lives in your notification area which allows you
+to quickly change the sound volume. You can do a right-click, left-click,
+middle-click, scroll up and down... I let you discover.
+
+For help on how to use VolWheel, type 'volwheel --help'.
+
+VolWheel is shipped with a few icons and icon themes. You can very easily make
+new icons and themes for VolWheel. Take a look in /usr/share/volwheel/icons/ to
+see how it works.
+
+Send your feedback and contribs to olivier.duclos@gmail.com
+You can track this software on http://oliwer.net/
+
+
+Requierements
+ * Perl 5
+ * Gtk2 perl module
+ * alsa-utils (amixer) or OSS (ossmix)
+
+Installation
+ * As root, run ./install.pl [--prefix=PREFIX] [--destdir=DESTDIR]
+ * PREFIX is set to '/usr/local' by default
+ * DESTDIR is only useful for packagers
+ * That is all.

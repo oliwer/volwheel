@@ -1,3 +1,9 @@
+2018-10-05 - v0.2.9
+ * Back from the grave, import to github
+ * Updated README
+ * Remove dependency on Shell.pm in the install script
+   (Gentoo patch volwheel-0.2.8-perl516.patch)
+
 2010-08-01 - v0.2.8
  * Fixed a bug which prevented to switch icon theme
  * Removed dependency on Switch.pm (Gentoo Bug #329965)
